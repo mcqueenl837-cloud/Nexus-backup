@@ -1,4 +1,4 @@
-#Nexus
+Nexus
 
 Shivam Jha — 5th Semester B.Sc. Student at Pandit Deendayal Energy University (PDEU)
 
