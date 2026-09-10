@@ -1,0 +1,67 @@
+from sentence_transformers import SentenceTransformer
+import json
+import chromadb
+
+print("Loading embedding model...")
+
+model_path=r"C:\Users\Kajal\.cache\huggingface\hub\models--sentence-transformers--all-MiniLM-L6-v2\snapshots\1110a243fdf4706b3f48f1d95db1a4f5529b4d41"
+
+model=SentenceTransformer(model_path,local_files_only=True)
+
+print("Embedding model loaded.")
+
+with open("phase2_topics.json","r",encoding="utf-8") as file:
+    phase2=json.load(file)
+
+print(f"Topics loaded: {len(phase2)}")
+
+def prepare(phase2):
+    ids=[]
+    metadatas=[]
+    documents=[]
+
+    for topic_key,topic_data in phase2.items():
+        placement=topic_data["placement"]
+        content=topic_data["text"]
+        page_number=topic_data["page"]
+        related_content=topic_data.get("related_content",{})
+
+        document_text=f"Title: {topic_key}, Placement: {placement}, Page number: {page_number}, Content: {content}, Related content: {related_content}"
+
+        record_id=topic_key.replace(" ","_")
+
+        metadata={
+            "topic_key":topic_key,
+            "placement":placement,
+            "page":page_number
+        }
+
+        ids.append(record_id)
+        documents.append(document_text)
+        metadatas.append(metadata)
+
+    return ids,documents,metadatas
+
+ids,documents,metadatas=prepare(phase2)
+
+print(f"Preparing {len(documents)} documents for embedding...")
+
+embeddings=model.encode(documents,show_progress_bar=True)
+
+print("Embeddings generated.")
+print(f"Embedding dimensions: {len(embeddings[0])}")
+
+client=chromadb.PersistentClient(path="chroma_storage")
+
+collection=client.get_or_create_collection(name="book_content")
+
+collection.upsert(
+    ids=ids,
+    documents=documents,
+    metadatas=metadatas,
+    embeddings=embeddings.tolist()
+)
+
+print("Data stored in ChromaDB successfully.")
+print(f"Records stored: {collection.count()}")
+print("Phase 3 complete.")
